@@ -1,0 +1,178 @@
+---
+title: "week_5_presentation"
+author: "Emma Li"
+format: html
+editor: visual
+---
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(gtsummary)
+library(patchwork)
+library(readr)
+library(readxl)
+library(sjPlot)
+library(tidyverse)
+
+datasets_folder <- "/Users/emmali/Desktop/Emma's Stuff/Summer Work/2024/UCLA Internship Work/ACCORD_exercises/datasets/"
+
+accord_key <- read_csv(paste(datasets_folder, "accord_key.csv", sep = "")) |>
+  print(width = Inf)
+bloodpressure <- 
+  read_csv(paste(datasets_folder, "bloodpressure.csv", sep = "")) |>
+  print(width = Inf)
+hba1c <- read_csv(paste(datasets_folder, "hba1c.csv", sep = "")) |>
+  print(width = Inf)
+```
+
+## Week 5 - ACCORD Data
+
+### Created mean of visits with standard/intensive glycemia
+
+-   bloodpressure_hba1c:
+    -   full_join() of bloodpressure and hba1c datasets
+-   treatment_bp_hba1c:
+    -   added treatment column to bloodpressure_hba1c
+    -   changed it to either standard (coded to 1) or intensive (coded to 0)
+-   treatment_mean:
+    -   takes the average of sbp, dbp, hba1c and treatment
+    -   mean_treatment is the percentage of people in intensive treatment
+
+```{r}
+bloodpressure_hba1c <- full_join(bloodpressure, hba1c, by = c("MaskID", "Visit")) |>
+  filter(Visit != "EXIT")
+
+treatment_bp_hba1c <- bloodpressure_hba1c |> 
+  left_join(accord_key, by = "MaskID") |> 
+  select(c(1:6, 10)) |> 
+  mutate(
+    treatment = case_when(
+      str_detect(treatment, "Standard") ~ 0,
+      str_detect(treatment, "Intensive") ~ 1
+    )
+  )
+
+treatment_mean <- treatment_bp_hba1c |> 
+  group_by(Visit) |> 
+  summarise(
+    mean_sbp = mean(sbp, na.rm = TRUE),
+    mean_dbp = mean(dbp, na.rm = TRUE),
+    mean_hba1c = mean(hba1c, na.rm = TRUE),
+    mean_treatment = round(mean(treatment, na.rm = TRUE), 2)
+  )
+```
+
+### Plotted means in percentage of standard/intensive treatment
+
+-   plotted graphs of mean of dbp and hba1c
+-   percentages of people in intensive therapy labeled above each point
+
+```{r, warning=FALSE}
+ggplot(treatment_mean, aes(x = Visit, y = mean_dbp, color = mean_treatment)) +
+  geom_point() +
+  geom_text(aes(label = mean_treatment), vjust = -1, size = 2) +
+  labs(
+    title = "Mean of DBP over every visit with treatment percentage",
+    subtitle = "There is significally more people in intensive therapy every other visit",
+    y = "DBP mean"
+  )
+
+ggplot(treatment_mean, aes(x = Visit, y = mean_hba1c, color = mean_treatment)) +
+  geom_point() +
+  geom_text(aes(label = mean_treatment), vjust = -1, size = 2) +
+  labs(
+    title = "Mean of HbA1c over every visit with treatment percentage",
+    y = "HbA1c mean"
+  )
+```
+
+## Shiny
+
+-   Framework for creating apps using R
+
+### Chapter 1
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(shiny)
+```
+
+```{r}
+# 1
+ui <- fluidPage(
+  # 2
+  selectInput("dataset", label = "Dataset", choices = ls("package:datasets")),
+  # 3
+  verbatimTextOutput("summary"),
+  tableOutput("table")
+)
+
+# 4
+server <- function(input, output, session) {
+  # 5 
+  output$summary <- renderPrint({
+    dataset <- get(input$dataset, "package:datasets")
+    summary(dataset)
+  })
+  
+  output$table <- renderTable({
+    dataset <- get(input$dataset, "package:datasets")
+    dataset
+  })
+}
+
+# 6 (commented out because it can't be show in html file)
+# shinyApp(ui, server)
+```
+
+1. defining a user interface, it is a layout function
+2. input control
+3. output control
+4. dictate what the app does
+5. render function
+6. construct and start Shiny app from UI and server
+
+```{r}
+# using reactive expressions
+server <- function(input, output, session) {
+  # Create a reactive expression
+  dataset <- reactive({
+    get(input$dataset, "package:datasets")
+  })
+
+  output$summary <- renderPrint({
+    # Use a reactive expression by calling it like a function
+    summary(dataset())
+  })
+  
+  output$table <- renderTable({
+    dataset()
+  })
+}
+```
+
+### Chapter 3
+
+-   Every user gets the same ui
+-   Server:
+    -   Called every time user runs the app
+    -   Input: receive input here, cannot modify input
+    -   Output: sending output here, cannot read output, use with render function
+-   Reactive programming:
+    -   Having inputs affect outputs
+    -   Imperative verses declarative programming:
+        -   Imperative: Issue command that is carried out immediately
+        -   Declarative: Express goals and constraints and how and when to do them
+    -   Shiny is in the style of declarative programming
+    -   Reactive graph: decribes order in which code will run
+    -   Reactive expressions:
+        -   Results can be used in an output
+        -   Depends on inputs and automatically update when inputs change
+        -   Used to stop repeated computation
+    -   Controlling timing of evaluation:
+        -   Controlling when a piece of code should be evaluated
+    -   Observers:
+        -   Used to do things outside of the app itself
