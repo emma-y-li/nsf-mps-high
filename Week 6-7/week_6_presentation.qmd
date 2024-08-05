@@ -1,5 +1,5 @@
 ---
-title: "Week 6 Presentation - Cosmos Information"
+title: "Week 6 Presentation"
 author: "Emma Li"
 format: html
 editor: visual
@@ -37,3 +37,7 @@ editor: visual
 -   Off campus trips to nearby town center roughly twice per week
 -   You can get picked up by parent over the weekends
 -   Work on a capstone project / poster which will be presented the last Friday
+
+## Questions for Career Development Workshop
+
+1.  some question
