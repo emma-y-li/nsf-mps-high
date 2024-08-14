@@ -40,4 +40,13 @@ editor: visual
 
 ## Questions for Career Development Workshop
 
-1.  some question
+1.  What is the most interesting research project you have worked on?
+2.  What topics are you interested in researching / why are you interested in these topics?
+3.  Which grade levels do you teach / what classes do you teach?
+4.  What do you enjoy about teaching?
+5.  When did you become interested in data science and statistics?
+6.  What where you interests you about data science and statistics?
+7.  Throughout your education, did you encounter many other girls and women in the same field of work as you?
+8.  Can you give an example of experiences where mentorship really helped you?
+9.  What difficulties did you face and how did you work through it?
+10. How do you think AI will affect the fields you're working in?
