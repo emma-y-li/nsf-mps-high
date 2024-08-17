@@ -128,12 +128,12 @@ server <- function(input, output, session) {
 # shinyApp(ui, server)
 ```
 
-1. defining a user interface, it is a layout function
-2. input control
-3. output control
-4. dictate what the app does
-5. render function
-6. construct and start Shiny app from UI and server
+1.  defining a user interface, it is a layout function
+2.  input control
+3.  output control
+4.  dictate what the app does
+5.  render function
+6.  construct and start Shiny app from UI and server
 
 ```{r}
 # using reactive expressions

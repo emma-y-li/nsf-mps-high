@@ -1,0 +1,66 @@
+---
+title: "week_7_presentation"
+format: html
+editor: visual
+---
+
+## Mastering Shiny
+
+### Chapter 6
+
+-   Layout
+    -   Different layout functions:
+        -   fluidPage() - most commonly used layout function
+        -   fixedPage() - fixed max width
+        -   fillPage() - fills the full height of a browser
+    -   Sidebar functions: sidebarLayout(), titlePanel(), sidebarPanel(), mainPanel()
+        -   These functions dictates the layout and what goes inside of the panels
+        -   sidebarPanel() and mainPanel() go inside of sidebarLayout()
+    -   Creating columns: fluidRow(), column()
+        -   First value in column() is a number, signifying how many of the 12 columns in a row to occupy
+    -   Multi-page layouts: tabPanel(), tabsetPanel(), navbarPage(), navbarMenu(), navlistPanel()
+        -   Limit to number of tabs because of horizontal display of names
+        -   navlistPanel() shows tabs vertically in a sidebar
+        -   navbarPage() shows tabs horizontally with navbarMenu() adding a drop down menu
+-   Themes
+    -   bslib package can customize the look of a Shiny app
+        -   theme = bslib::bslib_theme() in ui
+        -   To make graphs and plots match: thematic::thematic_shiny() in server
+-   You can customize Shiny further by using HTML and CSS
+
+### Chapter 7
+
+-   Graphics
+    -   plotOutput() can be used to make interactive graphs
+        -   A plot can respond to the mouse events click, dblclick, hover and brush
+        -   Ex: plotOutput("plot", click = "plot_click") creates input\$plot_click
+        -   Use nearPoints() to return data table of rows near the click
+    -   reactiveVal() is used to create a reactive value that can be used to modify plots
+    -   change the width and height values of renderPlot() to change the width and height of the plot
+    -   renderImage() for displaying images
+
+### Chapter 8
+
+-   User feedback
+
+### Chapter 9
+
+-   Uploads
+    -   fileInput() can be added to ui to upload a file, requires id and label
+    -   In server, it returns data frame with name, size, type and datapath
+    -   When uploading a dataset:
+        -   Add req(input\$upload) in server
+        -   (optional) add accept argument to fileInput() to limit what kinds of files can be uploaded
+-   Downloads
+    -   downloadButton() or downloadLink() can be added to ui, requires id
+    -   No render functions, use downloadHandler() what file to download and where
+    -   Download reports using parameterised RMarkdown document
+
+### Chapter 10
+
+-   Dynamic UI
+    -   something
+
+### Chapter 11
+
+### Chapter 12
