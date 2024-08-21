@@ -1,215 +1,10 @@
 library(shiny)
-library(ggplot2)
-
-# Chapter 6 ------------------------------------
-# sidebar
-ui <- fluidPage(
-  titlePanel("Central limit theorem"),
-  sidebarLayout(
-    sidebarPanel(
-      numericInput("m", "Number of samples:", 2, min = 1, max = 100)
-    ),
-    mainPanel(
-      plotOutput("hist")
-    )
-  )
-)
-
-server <- function(input, output, session) {
-  output$hist <- renderPlot({
-    means <- replicate(1e4, mean(runif(input$m)))
-    hist(means, breaks = 20)
-  }, res = 96)
-}
-
-# tab and tablist
-ui <- fluidPage(
-  sidebarLayout(
-    sidebarPanel(
-      textOutput("panel")
-    ),
-    mainPanel(
-      tabsetPanel(
-        id = "tabset",
-        tabPanel("panel 1", "one"),
-        tabPanel("panel 2", "two"),
-        tabPanel("panel 3", "three")
-      )
-    )
-  )
-)
-
-server <- function(input, output, session) {
-  output$panel <- renderText({
-    paste("Current panel: ", input$tabset)
-  })
-}
-
-# tab and navlist
-ui <- fluidPage(
-  navlistPanel(
-    id = "tabset",
-    "Heading 1",
-    tabPanel("panel 1", "Panel one contents"),
-    "Heading 2",
-    tabPanel("panel 2", "Panel two contents"),
-    tabPanel("panel 3", "Panel three contents")
-  )
-)
-
-# navbarPage
-ui <- navbarPage(
-  "Page title",   
-  tabPanel("panel 1", "one"),
-  tabPanel("panel 2", "two"),
-  tabPanel("panel 3", "three"),
-  navbarMenu("subpanels", 
-             tabPanel("panel 4a", "four-a"),
-             tabPanel("panel 4b", "four-b"),
-             tabPanel("panel 4c", "four-c")
-  )
-)
-
-# bslib themes
-
-ui <- fluidPage(
-  theme = bslib::bs_theme(bootswatch = "darkly"),
-  titlePanel("A darkly themed plot"),
-  plotOutput("plot"),
-)
-
-server <- function(input, output, session) {
-  thematic::thematic_shiny()
-  
-  output$plot <- renderPlot({
-    ggplot(mtcars, aes(wt, mpg)) +
-      geom_point() +
-      geom_smooth()
-  }, res = 96)
-}
-
-# Chapter 7 -----------------------------------
-
-# basic example of using click
-ui <- fluidPage(
-  plotOutput("plot", click = "plot_click"),
-  verbatimTextOutput("info")
-)
-
-server <- function(input, output) {
-  output$plot <- renderPlot({
-    plot(mtcars$wt, mtcars$mpg)
-  }, res = 96)
-  
-  output$info <- renderPrint({
-    req(input$plot_click)
-    x <- round(input$plot_click$x, 2)
-    y <- round(input$plot_click$y, 2)
-    cat("[", x, ", ", y, "]", sep = "")
-  })
-}
-
-# using click and nearPoints()
-ui <- fluidPage(
-  plotOutput("plot", click = "plot_click"),
-  tableOutput("data")
-)
-
-server <- function(input, output, session) {
-  output$plot <- renderPlot({
-    ggplot(mtcars, aes(wt, mpg)) + geom_point()
-  }, res = 96)
-  
-  output$data <- renderTable({
-    req(input$plot_click)
-    nearPoints(mtcars, input$plot_click)
-  })
-}
-
-# using brush
-ui <- fluidPage(
-  plotOutput("plot", brush = "plot_brush"),
-  tableOutput("data")
-)
-
-server <- function(input, output, session) {
-  output$plot <- renderPlot({
-    ggplot(mtcars, aes(wt, mpg)) + geom_point()
-  }, res = 96)
-  
-  output$data <- renderTable({
-    brushedPoints(mtcars, input$plot_brush)
-  })
-}
-
-# using reactiveVal()
-set.seed(1014)
-df <- data.frame(x = rnorm(100), y = rnorm(100))
-
-ui <- fluidPage(
-  plotOutput("plot", click = "plot_click", )
-)
-
-server <- function(input, output, session) {
-  dist <- reactiveVal(rep(1, nrow(df)))
-  observeEvent(input$plot_click,
-               dist(nearPoints(df, input$plot_click, allRows = TRUE, addDist = TRUE)$dist_)  
-  )
-  
-  output$plot <- renderPlot({
-    df$dist <- dist()
-    ggplot(df, aes(x, y, size = dist)) + 
-      geom_point() + 
-      scale_size_area(limits = c(0, 1000), max_size = 10, guide = NULL)
-  }, res = 96)
-}
-
-# another reactiveVal()
-
-ui <- fluidPage(
-  plotOutput("plot", brush = "plot_brush", dblclick = "plot_reset")
-)
-
-server <- function(input, output, session) {
-  selected <- reactiveVal(rep(FALSE, nrow(mtcars)))
-  
-  observeEvent(input$plot_brush, {
-    brushed <- brushedPoints(mtcars, input$plot_brush, allRows = TRUE)$selected_
-    selected(brushed | selected())
-  })
-  observeEvent(input$plot_reset, {
-    selected(rep(FALSE, nrow(mtcars)))
-  })
-  
-  output$plot <- renderPlot({
-    mtcars$sel <- selected()
-    ggplot(mtcars, aes(wt, mpg)) + 
-      geom_point(aes(colour = sel)) +
-      scale_colour_discrete(limits = c("TRUE", "FALSE"))
-  }, res = 96)
-}
-
-# changing width and height of a plot
-ui <- fluidPage(
-  sliderInput("height", "height", min = 100, max = 500, value = 250),
-  sliderInput("width", "width", min = 100, max = 500, value = 250),
-  plotOutput("plot", width = 250, height = 250)
-)
-
-server <- function(input, output, session) {
-  output$plot <- renderPlot(
-    width = function() input$width,
-    height = function() input$height,
-    res = 96,
-    {
-      plot(rnorm(20), rnorm(20))
-    }
-  )
-}
+library(tidyverse)
 
 # Chapter 9 ---------------------------------
 
-# upload file
+# upload file ----------
+
 ui <- fluidPage(
   fileInput("upload", NULL, buttonLabel = "Upload...", multiple = TRUE),
   tableOutput("files")
@@ -220,7 +15,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-# upload dataset
+# upload dataset ----------
 
 ui <- fluidPage(
   fileInput("upload", NULL, accept = c(".csv", ".tsv")),
@@ -247,7 +42,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-# download data
+# download data ----------
 
 ui <- fluidPage(
   selectInput("dataset", "Pick a dataset", ls("package:datasets")),
@@ -280,7 +75,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-# download report
+# download report ----------
 
 ui <- fluidPage(
   sliderInput("n", "Number of points", 1, 100, 50),
@@ -310,3 +105,324 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+# Chapter 10 ---------------------------
+
+# update functions ----------
+
+ui <- fluidPage(
+  numericInput("min", "Minimum", 0),
+  numericInput("max", "Maximum", 3),
+  sliderInput("n", "n", min = 0, max = 3, value = 1)
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$min, {
+    updateSliderInput(inputId = "n", min = input$min)
+  })  
+  observeEvent(input$max, {
+    updateSliderInput(inputId = "n", max = input$max)
+  })
+}
+
+shinyApp(ui, server)
+
+# hierarchical select boxes ----------
+
+sales <- vroom::vroom("sales-dashboard/sales_data_sample.csv", col_types = list(), na = "")
+sales %>% 
+  select(TERRITORY, CUSTOMERNAME, ORDERNUMBER, everything()) %>%
+  arrange(ORDERNUMBER)
+
+ui <- fluidPage(
+  selectInput("territory", "Territory", choices = unique(sales$TERRITORY)),
+  selectInput("customername", "Customer", choices = NULL),
+  selectInput("ordernumber", "Order number", choices = NULL),
+  tableOutput("data")
+)
+
+server <- function(input, output, session) {
+  territory <- reactive({
+    filter(sales, TERRITORY == input$territory)
+  })
+  observeEvent(territory(), {
+    choices <- unique(territory()$CUSTOMERNAME)
+    updateSelectInput(inputId = "customername", choices = choices) 
+  })
+  
+  customer <- reactive({
+    req(input$customername)
+    filter(territory(), CUSTOMERNAME == input$customername)
+  })
+  observeEvent(customer(), {
+    choices <- unique(customer()$ORDERNUMBER)
+    updateSelectInput(inputId = "ordernumber", choices = choices)
+  })
+  
+  output$data <- renderTable({
+    req(input$ordernumber)
+    customer() %>% 
+      filter(ORDERNUMBER == input$ordernumber) %>% 
+      select(QUANTITYORDERED, PRICEEACH, PRODUCTCODE)
+  })
+}
+
+shinyApp(ui, server)
+
+# I don't have the dataset, click on the link: https://hadley.shinyapps.io/ms-update-nested/
+# If not using freezingReactiveInput(): https://hadley.shinyapps.io/ms-freeze
+
+# inter-related inputs ----------
+
+ui <- fluidPage(
+  numericInput("temp_c", "Celsius", NA, step = 1),
+  numericInput("temp_f", "Fahrenheit", NA, step = 1)
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$temp_f, {
+    c <- round((input$temp_f - 32) * 5 / 9)
+    updateNumericInput(inputId = "temp_c", value = c)
+  })
+  
+  observeEvent(input$temp_c, {
+    f <- round((input$temp_c * 9 / 5) + 32)
+    updateNumericInput(inputId = "temp_f", value = f)
+  })
+}
+
+shinyApp(ui, server)
+
+# dynamic visibility ----------
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("controller", "Show", choices = paste0("panel", 1:3))
+    ),
+    mainPanel(
+      tabsetPanel(
+        id = "switcher",
+        type = "hidden",
+        tabPanelBody("panel1", "Panel 1 content"),
+        tabPanelBody("panel2", "Panel 2 content"),
+        tabPanelBody("panel3", "Panel 3 content")
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$controller, {
+    updateTabsetPanel(inputId = "switcher", selected = input$controller)
+  })
+}
+
+shinyApp(ui, server)
+
+# conditional UI ----------
+
+parameter_tabs <- tabsetPanel(
+  id = "params",
+  type = "hidden",
+  tabPanel("normal",
+           numericInput("mean", "mean", value = 1),
+           numericInput("sd", "standard deviation", min = 0, value = 1)
+  ),
+  tabPanel("uniform", 
+           numericInput("min", "min", value = 0),
+           numericInput("max", "max", value = 1)
+  ),
+  tabPanel("exponential",
+           numericInput("rate", "rate", value = 1, min = 0),
+  )
+)
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("dist", "Distribution", 
+                  choices = c("normal", "uniform", "exponential")
+      ),
+      numericInput("n", "Number of samples", value = 100),
+      parameter_tabs,
+    ),
+    mainPanel(
+      plotOutput("hist")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$dist, {
+    updateTabsetPanel(inputId = "params", selected = input$dist)
+  }) 
+  
+  sample <- reactive({
+    switch(input$dist,
+           normal = rnorm(input$n, input$mean, input$sd),
+           uniform = runif(input$n, input$min, input$max),
+           exponential = rexp(input$n, input$rate)
+    )
+  })
+  output$hist <- renderPlot(hist(sample()), res = 96)
+}
+
+shinyApp(ui, server)
+
+# wizard interface ----------
+
+ui <- fluidPage(
+  tabsetPanel(
+    id = "wizard",
+    type = "hidden",
+    tabPanel("page_1", 
+             "Welcome!",
+             actionButton("page_12", "next")
+    ),
+    tabPanel("page_2", 
+             "Only one page to go",
+             actionButton("page_21", "prev"),
+             actionButton("page_23", "next")
+    ),
+    tabPanel("page_3", 
+             "You're done!",
+             actionButton("page_32", "prev")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  switch_page <- function(i) {
+    updateTabsetPanel(inputId = "wizard", selected = paste0("page_", i))
+  }
+  
+  observeEvent(input$page_12, switch_page(2))
+  observeEvent(input$page_21, switch_page(1))
+  observeEvent(input$page_23, switch_page(3))
+  observeEvent(input$page_32, switch_page(2))
+}
+
+shinyApp(ui, server)
+
+# uiOutput() and renderUI() ----------
+
+ui <- fluidPage(
+  textInput("label", "label"),
+  selectInput("type", "type", c("slider", "numeric")),
+  uiOutput("numeric")
+)
+
+server <- function(input, output, session) {
+  output$numeric <- renderUI({
+    value <- isolate(input$dynamic)
+    if (input$type == "slider") {
+      sliderInput("dynamic", input$label, value = value, min = 0, max = 10)
+    } else {
+      numericInput("dynamic", input$label, value = value, min = 0, max = 10)
+    }
+  })
+}
+
+shinyApp(ui, server)
+
+# multiple controls ----------
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("n", "Number of colours", value = 5, min = 1),
+      uiOutput("col"),
+    ),
+    mainPanel(
+      plotOutput("plot")  
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  col_names <- reactive(paste0("col", seq_len(input$n)))
+  
+  output$col <- renderUI({
+    map(col_names(), ~ textInput(.x, NULL, value = isolate(input[[.x]])))
+  })
+  
+  output$plot <- renderPlot({
+    cols <- map_chr(col_names(), ~ input[[.x]] %||% "")
+    # convert empty inputs to transparent
+    cols[cols == ""] <- NA
+    
+    barplot(
+      rep(1, length(cols)), 
+      col = cols,
+      space = 0, 
+      axes = FALSE
+    )
+  }, res = 96)
+}
+
+shinyApp(ui, server)
+
+# Chapter 11 ---------------------------
+
+# bookmarking ----------
+
+ui <- function(request) {
+  fluidPage(
+    sidebarLayout(
+      sidebarPanel(
+        sliderInput("omega", "omega", value = 1, min = -2, max = 2, step = 0.01),
+        sliderInput("delta", "delta", value = 1, min = 0, max = 2, step = 0.01),
+        sliderInput("damping", "damping", value = 1, min = 0.9, max = 1, step = 0.001),
+        numericInput("length", "length", value = 100),
+        bookmarkButton()
+      ),
+      mainPanel(
+        plotOutput("fig")
+      )
+    )
+  )
+}
+
+server <- function(input, output, session) {
+  t <- reactive(seq(0, input$length, length.out = input$length * 100))
+  x <- reactive(sin(input$omega * t() + input$delta) * input$damping ^ t())
+  y <- reactive(sin(t()) * input$damping ^ t())
+  
+  output$fig <- renderPlot({
+    plot(x(), y(), axes = FALSE, xlab = "", ylab = "", type = "l", lwd = 2)
+  }, res = 96)
+}
+
+shinyApp(ui, server, enableBookmarking = "url")
+
+# auto updating url ----------
+
+# Automatically bookmark every time an input changes
+observe({
+  reactiveValuesToList(input)
+  session$doBookmark()
+})
+# Update the query string
+onBookmarked(updateQueryString)
+
+server <- function(input, output, session) {
+  t <- reactive(seq(0, input$length, length = input$length * 100))
+  x <- reactive(sin(input$omega * t() + input$delta) * input$damping ^ t())
+  y <- reactive(sin(t()) * input$damping ^ t())
+  
+  output$fig <- renderPlot({
+    plot(x(), y(), axes = FALSE, xlab = "", ylab = "", type = "l", lwd = 2)
+  }, res = 96)
+  
+  observe({
+    reactiveValuesToList(input)
+    session$doBookmark()
+  })
+  onBookmarked(updateQueryString)
+}
+
+shinyApp(ui, server, enableBookmarking = "url")
+
+# This code doesn't work
+# https://hadley.shinyapps.io/ms-bookmark-auto

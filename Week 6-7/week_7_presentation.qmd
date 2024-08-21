@@ -6,43 +6,6 @@ editor: visual
 
 ## Mastering Shiny
 
-### Chapter 6
-
--   Layout
-    -   Different layout functions:
-        -   fluidPage() - most commonly used layout function
-        -   fixedPage() - fixed max width
-        -   fillPage() - fills the full height of a browser
-    -   Sidebar functions: sidebarLayout(), titlePanel(), sidebarPanel(), mainPanel()
-        -   These functions dictates the layout and what goes inside of the panels
-        -   sidebarPanel() and mainPanel() go inside of sidebarLayout()
-    -   Creating columns: fluidRow(), column()
-        -   First value in column() is a number, signifying how many of the 12 columns in a row to occupy
-    -   Multi-page layouts: tabPanel(), tabsetPanel(), navbarPage(), navbarMenu(), navlistPanel()
-        -   Limit to number of tabs because of horizontal display of names
-        -   navlistPanel() shows tabs vertically in a sidebar
-        -   navbarPage() shows tabs horizontally with navbarMenu() adding a drop down menu
--   Themes
-    -   bslib package can customize the look of a Shiny app
-        -   theme = bslib::bslib_theme() in ui
-        -   To make graphs and plots match: thematic::thematic_shiny() in server
--   You can customize Shiny further by using HTML and CSS
-
-### Chapter 7
-
--   Graphics
-    -   plotOutput() can be used to make interactive graphs
-        -   A plot can respond to the mouse events click, dblclick, hover and brush
-        -   Ex: plotOutput("plot", click = "plot_click") creates input\$plot_click
-        -   Use nearPoints() to return data table of rows near the click
-    -   reactiveVal() is used to create a reactive value that can be used to modify plots
-    -   change the width and height values of renderPlot() to change the width and height of the plot
-    -   renderImage() for displaying images
-
-### Chapter 8
-
--   User feedback
-
 ### Chapter 9
 
 -   Uploads
@@ -59,8 +22,303 @@ editor: visual
 ### Chapter 10
 
 -   Dynamic UI
-    -   something
+    -   Update functions to update inputs
+        -   Every input control has a update function
+        -   Ex. textInput() and updateTextInput()
+        -   Hierarchical select boxes
+        -   Freezing reactive inputs
+            -   Hierarchical selection can create invalid inputs which lead to flickering outputs
+            -   freezeReactiveInput() stops reactive inputs from updating when its not necessary and prevents errors
+        -   Circular references
+            -   Be mindful to not create infinite loops when updating values
+        -   Inter-related inputs
+    -   Dynamic visibility
+        -   Use tabset panel with hidden tabs and updateTabsetPanel() to switch tabs to show and hide different parts of the UI
+        -   Conditional UI
+            -   Depending on what the user selects, display different options
+        -   Wizard interface
+            -   A kind of interface that makes it easier to collect information by spreading it across many pages
+    -   Creating UI with code
+        -   uiOutput() inserts placeholder in ui
+        -   renderUI() fills in the placeholder from server
+        -   Multiple controls with purrr functions map() and reduce()
 
 ### Chapter 11
 
-### Chapter 12
+-   Bookmarking
+    -   Shiny doesn't expose the current state of an app in the URL
+    -   How to make an app bookmarkable:
+        -   Add bookmarkButton() to ui
+        -   Turn ui into a function
+        -   Add enableBookmarking = "url" to shinyApp()
+    -   You can also automatically update the URL
+    -   Adding enableBookmarking = "server" to shinyApp() saves state to .rds file
+
+## Predictive Modeling
+
+### Logistic Regression
+
+Predict food insecurity status using household’s socio-economical status
+
+```{r}
+library(readr)
+library(gtsummary)
+library(knitr)
+library(pROC)
+library(tidymodels)
+```
+
+Loading the data
+
+```{r}
+data_clean <- read_rds("../Week 6-7/fss21.rds") |>
+  print()
+```
+
+Using logistic regression to model the probability of a household being in low food security
+
+```{r}
+logit_model <- glm(
+  # All predictors except HRFS12M1 and HHSUPWGT
+  HRFS12M1_binary ~ . - HRFS12M1 - HHSUPWGT,
+  data = data_clean, 
+  family = "binomial"
+  )
+logit_model
+```
+
+Summary of the model with gtsummary
+
+```{r}
+logit_model |>
+  tbl_regression() |>
+  bold_labels() |>
+  bold_p(t = 0.05)
+```
+
+Importance of each predictor evaluated using the ANOVA test
+
+```{r}
+anova(logit_model, test = "Chisq")
+```
+
+### ROC Curve
+
+Using different thresholds when using the model for prediction
+
+```{r}
+pred_prob <- predict(logit_model, type = "response")
+
+# Set the threshold 0.5
+threshold <- 0.5
+
+predicted_class <- ifelse(pred_prob > threshold, 1, 0) |> as.factor()
+actual_class <- data_clean$HRFS12M1_binary
+
+ctb_50 <- table(Predicted = predicted_class, Actual = actual_class)
+
+# Set the threshold 0.1
+threshold <- 0.1
+
+predicted_class <- ifelse(pred_prob > threshold, 1, 0) |> as.factor()
+actual_class <- data_clean$HRFS12M1_binary
+
+ctb_10 <- table(Predicted = predicted_class, Actual = actual_class)
+
+list(threshold50 = ctb_50, threshold10 = ctb_10)
+```
+
+Calculating the metrics of using 0.5 verses 0.1 as the threshold
+
+```{r}
+# Calculate metrics under different thresholds
+calc_metrics <- function(ct) {
+  c(Accuracy = (ct[1, 1] + ct[2, 2]) / sum(ct),
+    Sensitivity = ct[2, 2] / sum(ct[, 2]),
+    Specificity = ct[1, 1] / sum(ct[, 1]),
+    Precision = ct[2, 2] / sum(ct[2, ]))
+}
+
+metrics50 <- calc_metrics(ctb_50)
+metrics10 <- calc_metrics(ctb_10)
+
+data.frame(threshold50 = metrics50, threshold10 = metrics10) |>
+  t() |>
+  round(2) |>
+  kable()
+```
+
+From the metrics: A threshold of 0.5 has a high accuracy rate (0.90) but misses many cases that it is designed to capture (in this case, households with low food security, this model only captures 2% of them). A threshold of 0.1 has a lower accuracy rate (0.74) but captures a lot more cases that it should (71% of households with low food security).
+
+Graphing a ROC curve and calculating the AUC
+
+```{r}
+data_clean <- data_clean |>
+  mutate(prob = predict(logit_model, type = "response"))
+
+roc_data <- roc(data_clean$HRFS12M1_binary, data_clean$prob)
+
+ggroc(roc_data, legacy.axes = TRUE) +
+  labs(title = "ROC Curve for Logistic Regression Model",
+       x = "1 - Specificity",
+       y = "Sensitivity") +
+  theme_minimal() +
+  annotate("text", x = 0.5, y = 0.5,
+           label = paste("AUC =", round(auc(roc_data), 3)))
+```
+
+AUC is 0.794 which is pretty good. Ideally, we want the AUC to be as close to 1 as possible.
+
+Use Mean Square Error and Cross Validation to determine how good the model is
+
+### Logistic Regression with Enet (elastic-net) Regularization
+
+Split the data
+
+```{r}
+# For reproducibility
+set.seed(2024)
+
+data_split <- data_clean |>
+  initial_split(
+  # stratify by HRFS12M1_binary
+  strata = "HRFS12M1_binary", 
+  prop = 0.75
+  )
+data_split
+
+data_other <- training(data_split)
+dim(data_other)
+
+data_test <- testing(data_split)
+dim(data_test)
+```
+
+Recipe
+
+```{r}
+recipe <- recipe(
+    HRFS12M1_binary ~ .,
+    data = data_other
+  ) |>
+  # remove the weights and original HRFS12M1
+  step_rm(HHSUPWGT, HRFS12M1) |>
+  # create dummy variables for categorical predictors
+  step_dummy(all_nominal_predictors()) |>
+  # zero-variance filter
+  step_zv(all_numeric_predictors()) |> 
+  # center and scale numeric data
+  step_normalize(all_numeric_predictors()) |>
+  # estimate the means and standard deviations
+  print()
+```
+
+Model
+
+```{r}
+logit_mod <- logistic_reg(
+    penalty = tune(), # \lambda
+    mixture = tune()  # \alpha
+  ) |> 
+  set_engine("glmnet", standardize = FALSE) |>
+  print()
+```
+
+Workflow
+
+```{r}
+train_weight <- round(data_other$HHSUPWGT / 1000, 0)
+train_weight <- ifelse(train_weight == 0, 1, train_weight)
+
+logit_wf <- workflow() |>
+  #add_case_weights(train_weight) |>
+  add_recipe(recipe) |>
+  add_model(logit_mod) |>
+  print()
+```
+
+Tuning Grid
+
+```{r}
+param_grid <- grid_regular(
+  penalty(range = c(-3, 3)), # \lambda
+  mixture(), # \alpha
+  levels = c(1000, 5)
+  ) |>
+  print()
+```
+
+Cross Validation
+
+Set partitions
+
+```{r}
+(folds <- vfold_cv(data_other, v = 5))
+```
+
+Fit cross validation
+
+```{r}
+(logit_fit <- logit_wf |>
+  tune_grid(
+    resamples = folds,
+    grid = param_grid,
+    metrics = metric_set(roc_auc, accuracy)
+    )) |>
+  system.time()
+```
+
+Visualize CV result
+
+```{r}
+logit_fit |>
+  # aggregate metrics from K folds
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(
+    x = penalty, 
+    y = mean, 
+    color = factor(mixture)
+    )) +
+  geom_point() +
+  labs(x = "Penalty", y = "CV AUC") +
+  scale_x_log10()
+```
+
+5 best models
+
+```{r}
+logit_fit |>
+  show_best(metric = "roc_auc")
+```
+
+Best model
+
+```{r}
+best_logit <- logit_fit |>
+  select_best(metric = "roc_auc")
+best_logit
+```
+
+Final Model
+
+```{r}
+# Final workflow
+final_wf <- logit_wf |>
+  finalize_workflow(best_logit)
+final_wf
+```
+
+```{r}
+# Fit the whole training set, then predict the test cases
+final_fit <- final_wf |>
+  last_fit(data_split)
+final_fit
+```
+
+```{r}
+# Test metrics
+final_fit |> 
+  collect_metrics()
+```
