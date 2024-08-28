@@ -1,0 +1,68 @@
+---
+title: "Week 8 Shiny Presentation"
+author: "Emma"
+format: html
+editor: visual
+---
+
+## Mastering Shiny
+
+### Chapter 9
+
+-   Uploads
+    -   fileInput() can be added to ui to upload a file, requires id and label
+    -   In server, it returns data frame with name, size, type and datapath
+    -   When uploading a dataset:
+        -   Add req(input\$upload) in server
+        -   (optional) add accept argument to fileInput() to limit what kinds of files can be uploaded
+-   Downloads
+    -   downloadButton() or downloadLink() can be added to ui, requires id
+    -   No render functions, use downloadHandler() what file to download and where
+    -   Download reports using parameterised RMarkdown document
+
+### Chapter 10
+
+-   Dynamic UI
+    -   Update functions to update inputs
+        -   Every input control has a update function
+        -   Ex. textInput() and updateTextInput()
+        -   Hierarchical select boxes
+        -   Freezing reactive inputs
+            -   Hierarchical selection can create invalid inputs which lead to flickering outputs
+            -   freezeReactiveInput() stops reactive inputs from updating when its not necessary and prevents errors
+        -   Circular references
+            -   Be mindful to not create infinite loops when updating values
+        -   Inter-related inputs
+    -   Dynamic visibility
+        -   Use tabset panel with hidden tabs and updateTabsetPanel() to switch tabs to show and hide different parts of the UI
+        -   Conditional UI
+            -   Depending on what the user selects, display different options
+        -   Wizard interface
+            -   A kind of interface that makes it easier to collect information by spreading it across many pages
+    -   Creating UI with code
+        -   uiOutput() inserts placeholder in ui
+        -   renderUI() fills in the placeholder from server
+        -   Multiple controls with purrr functions map() and reduce()
+
+### Chapter 11
+
+-   Bookmarking
+    -   Shiny doesn't expose the current state of an app in the URL
+    -   How to make an app bookmarkable:
+        -   Add bookmarkButton() to ui
+        -   Turn ui into a function
+        -   Add enableBookmarking = "url" to shinyApp()
+    -   You can also automatically update the URL
+    -   Adding enableBookmarking = "server" to shinyApp() saves state to .rds file
+
+### Chapter 12
+
+-   Using Shiny with Tidyverse
+    -   Two different kinds of variables
+        -   Environment variable: variable created with \<-
+        -   Data variable: variable that lives inside data frame
+    -   Problem: how to tell tidyverse there is a data variable in an environment variable
+    -   Data masking: Use variables in current data frame without other syntax
+        -   Use .data and .env to specify what variable you're talking about
+    -   Tidy selection: Selecting columns by name, position or type
+        -   Use any_of() or all_of() to refer to variables indirectly

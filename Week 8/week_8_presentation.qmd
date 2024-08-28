@@ -1,0 +1,188 @@
+---
+title: "Week 8"
+author: "Emma Li"
+format: html
+editor: visual
+---
+
+## Logistic Regression with Elastic-net Regularization
+
+-   Problem with only having a small subset of data
+    -   Overfitting: when the model starts reflecting the details of the training set instead of getting a general idea
+    -   The accuracy of the model on the training set may get really high but it will produce a low accuracy on the test set
+-   One solution: shrinkage methods
+    -   Shrink the coefficients of the model towards 0
+    -   This simplifies the model and reduces the amount of parameters that the model had
+    -   Turning parameter (λ, lowercase lambda) controls how much shrinkage is applied
+    -   Common shrinkage methods:
+        -   Ridge regression:
+            -   Adds penalty to loss function proportional to square of the magnitude of the coefficients
+            -   Shrinks coefficients towards zero
+        -   Lasso regression:
+            -   Adds penalty to loss function proportional to absolute value of coefficients
+            -   Shrinks coefficients and sometimes sets them to zero (feature selection)
+        -   Elastic-net:
+            -   Combination of ridge and lasso regression
+            -   Adds both penalties
+
+### Work flow:
+
+```{r, include=FALSE, warning=FALSE}
+library(tidymodels)
+library(glmnet)
+library(readr)
+library(gtsummary)
+library(knitr)
+library(pROC)
+
+data_clean <- read_rds("../Week 6-7/fss21.rds")
+
+logit_model <- glm(
+  # All predictors except HRFS12M1 and HHSUPWGT
+  HRFS12M1_binary ~ . - HRFS12M1 - HHSUPWGT,
+  data = data_clean, 
+  family = "binomial"
+  )
+
+data_clean <- data_clean |>
+  mutate(prob = predict(logit_model, type = "response"))
+```
+
+-   Split the dataset into training and testing
+    -   In the example case, 75% training and 25% testing
+
+```{r}
+# For reproducibility
+set.seed(2024)
+
+data_split <- data_clean |>
+  initial_split(
+  # stratify by HRFS12M1_binary
+  strata = "HRFS12M1_binary", 
+  prop = 0.75
+  )
+
+data_other <- training(data_split)
+dim(data_other)
+
+data_test <- testing(data_split)
+dim(data_test)
+```
+
+-   Recipe for data preprocessing
+
+```{r}
+recipe <- recipe(
+    HRFS12M1_binary ~ .,
+    data = data_other
+  ) |>
+  # remove the weights and original HRFS12M1
+  step_rm(HHSUPWGT, HRFS12M1) |>
+  # create dummy variables for categorical predictors
+  step_dummy(all_nominal_predictors()) |>
+  # zero-variance filter
+  step_zv(all_numeric_predictors()) |> 
+  # center and scale numeric data
+  step_normalize(all_numeric_predictors()) |>
+  # estimate the means and standard deviations
+  print()
+```
+
+-   Base logistic regression model
+    -   Add penalty and mixture (balance between lasso and ridge regression in enet)
+    -   Set the computational engine to glmnet
+        -   glmnet: R package that creates generalized linear models and has built in shrinkage methods
+
+```{r}
+logit_mod <- logistic_reg(
+    penalty = tune(), # \lambda
+    mixture = tune()  # \alpha
+  ) |> 
+  set_engine("glmnet", standardize = FALSE) |>
+  print()
+```
+
+-   Workflow with recipe and logistic regression model
+
+```{r}
+train_weight <- round(data_other$HHSUPWGT / 1000, 0)
+train_weight <- ifelse(train_weight == 0, 1, train_weight)
+
+logit_wf <- workflow() |>
+  #add_case_weights(train_weight) |>
+  add_recipe(recipe) |>
+  add_model(logit_mod) |>
+  print()
+```
+
+-   Tuning grid
+    -   5000 rows of different combinations of penalty and mixture
+
+```{r}
+param_grid <- grid_regular(
+  penalty(range = c(-3, 3)), # \lambda
+  mixture(), # \alpha
+  levels = c(1000, 5)
+  ) |>
+  print()
+```
+
+-   Fit cross validation
+    -   Fit 5000 models using the workflow and the tuning grid
+    -   Every model corresponds to one row of values in the tuning grid
+    -   Calculates the accuracy and the AUC of the ROC of every model
+
+```{r}
+(folds <- vfold_cv(data_other, v = 5))
+
+(logit_fit <- logit_wf |>
+  tune_grid(
+    resamples = folds,
+    grid = param_grid,
+    metrics = metric_set(roc_auc, accuracy)
+    )) |>
+  system.time()
+```
+
+```{r}
+logit_fit |>
+  # aggregate metrics from K folds
+  collect_metrics() |>
+  print(width = Inf) |>
+  filter(.metric == "roc_auc") |>
+  ggplot(mapping = aes(
+    x = penalty, 
+    y = mean, 
+    color = factor(mixture)
+    )) +
+  geom_point() +
+  labs(x = "Penalty", y = "CV AUC") +
+  scale_x_log10()
+```
+
+-   Best model based off of AUC value:
+    -   Penalty **≈** 0.05
+    -   Mixture = 1
+        -   This means that the model only used lasso regression
+    -   Accuracy = 0.902
+    -   ROC AUC = 0.797
+
+```{r}
+best_logit <- logit_fit |>
+  select_best(metric = "roc_auc")
+
+# Final workflow
+final_wf <- logit_wf |>
+  finalize_workflow(best_logit)
+final_wf
+```
+
+```{r}
+# Fit the whole training set, then predict the test cases
+final_fit <- final_wf |>
+  last_fit(data_split)
+
+# Test metrics
+final_fit |> 
+  collect_metrics()
+```
